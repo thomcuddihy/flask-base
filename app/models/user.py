@@ -65,7 +65,6 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(64), unique=True, index=True)
     password_hash = db.Column(db.String(128))
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     api_key = db.Column(db.String(64), unique=True, index=True)
     session_key = db.Column(db.String(64), unique=True, index=True)
 
@@ -218,8 +217,7 @@ class User(UserMixin, db.Model):
                 email=fake.email(),
                 password='password',
                 confirmed=True,
-                # role=choice(roles),
-                role=Role.query.filter_by(default=True).first(),
+                role=choice(roles),
                 **kwargs)
             db.session.add(u)
             try:
@@ -243,5 +241,5 @@ login_manager.anonymous_user = AnonymousUser
 
 
 @login_manager.user_loader
-def load_user(user_id):
-    return User.query.filter_by(session_key=user_id).first()
+def load_user(session_key):
+    return User.query.filter_by(session_key=session_key).first()

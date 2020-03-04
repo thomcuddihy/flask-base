@@ -213,3 +213,7 @@ https://medium.freecodecamp.com/how-we-got-a-2-year-old-repo-trending-on-github-
 
 ## License
 [MIT License](LICENSE.md)
+
+## Todo
+
+* Make groups more useful with decorator and GUI way to restrict endpoints

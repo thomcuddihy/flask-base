@@ -9,7 +9,7 @@ from flask import (
     send_file,
 )
 from flask_login import current_user, login_required
-
+from flask_rq import get_queue
 from app import db
 from app.admin.forms import (
     InviteUserForm,
@@ -31,10 +31,7 @@ admin = Blueprint('admin', __name__)
 @admin_required
 def index():
     """Admin dashboard page."""
-    file = "/opt/r_dashboards/Dashboard_2020/AllActivities2020.csv"
-    #activities_2020_modified = time.ctime(os.path.getmtime(file))
-    activities_2020_modified="boop"
-    return render_template('admin/index.html', activities_2020_modified=activities_2020_modified)
+    return render_template('admin/index.html')
 
 
 @admin.route('/new-user', methods=['GET', 'POST'])
@@ -79,7 +76,8 @@ def invite_user():
             user_id=user.id,
             token=token,
             _external=True)
-        send_email(
+        get_queue().enqueue(
+            send_email,
             recipient=user.email,
             subject='You Are Invited To Join',
             template='account/email/invite',
@@ -89,7 +87,7 @@ def invite_user():
         form = InviteUserForm()
         print("boop")
         flash('User {} successfully invited'.format(user.full_name()),
-              'form-success')        
+              'form-success')
     return render_template('admin/new_user.html', form=form)
 
 
@@ -272,45 +270,3 @@ def update_editor_contents():
     db.session.commit()
 
     return 'OK', 200
-
-@admin.route('/AllActivities2020', methods=['GET'])
-@login_required
-@admin_required
-def AllActivities2020():
-  try:
-    return send_file('/opt/r_dashboards/Dashboard_2020/AllActivities2020.csv', as_attachment=True, attachment_filename='AllActivities2020.csv')
-  except Exception as e:
-    return str(e)
-
-@admin.route('/webforms/<filename>', methods=['GET', 'POST'])
-@admin.route('/webforms/', defaults={'filename': ''})
-@login_required
-@admin_required
-def webforms(filename):
-    BASE_DIR = "uploads/webforms/"
-    print("BOOP!: " + filename + ".")
-
-    if "/" in filename:
-        # Return 400 BAD REQUEST
-        abort(400, "No paths allowed. Flat files only.")
-
-    # Joining the base and the requested path
-    abs_path = os.path.join(BASE_DIR, filename)
-
-    # Return 404 if path doesn't exist
-    if not os.path.exists(abs_path):
-        return abort(404)
-
-    # Check if path is a file and serve
-    if os.path.isfile(abs_path):
-        return send_file('../' + abs_path)
-
-    files = os.listdir(abs_path)
-    csv_files = []
-    for file in files:
-      if file.endswith(".csv"):
-        csv_files.append(file)
-
-    updated = time.ctime(os.path.getmtime(BASE_DIR + csv_files[0]))
-    csv_files.sort()
-    return render_template('admin/webforms.html', files=csv_files, updated=updated)

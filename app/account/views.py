@@ -12,7 +12,7 @@ from flask_login import (
     login_user,
     logout_user,
 )
-
+from flask_rq import get_queue
 from app import db
 from app.account.forms import (
     ChangeEmailForm,
@@ -83,7 +83,7 @@ def register():
               'warning')
         return redirect(url_for('main.index'))
     return render_template('account/register.html', form=form)
-    
+
 
 @account.route('/logout')
 @login_required
@@ -113,7 +113,8 @@ def reset_password_request():
             token = user.generate_password_reset_token()
             reset_link = url_for(
                 'account.reset_password', token=token, _external=True)
-            send_email(
+            get_queue().enqueue(
+                send_email,
                 recipient=user.email,
                 subject='Reset Your Password',
                 template='account/email/reset_password',
@@ -161,8 +162,6 @@ def api_key():
 @login_required
 def change_password():
     """Change an existing user's password."""
-    if not current_user.is_admin():
-        return redirect(url_for('main.index'))
     form = ChangePasswordForm()
     if form.validate_on_submit():
         if current_user.verify_password(form.old_password.data):
