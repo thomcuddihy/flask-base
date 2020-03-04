@@ -49,6 +49,9 @@ class RegistrationForm(FlaskForm):
                                   '<a href="{}">log in</a> instead?)'.format(
                                     url_for('account.login')))
 
+class ApiTokenForm(FlaskForm):
+    api_token = StringField(render_kw={'readonly': True})
+    generate = SubmitField('Generate API Token')
 
 class RequestResetPasswordForm(FlaskForm):
     email = EmailField(
@@ -104,6 +107,16 @@ class ChangePasswordForm(FlaskForm):
     new_password2 = PasswordField(
         'Confirm new password', validators=[InputRequired()])
     submit = SubmitField('Update password')
+
+
+class ChangeUserNameForm(FlaskForm):
+    first_name = StringField(
+        'First name', validators=[InputRequired(),
+                                  Length(1, 64)])
+    last_name = StringField(
+        'Last name', validators=[InputRequired(),
+                                 Length(1, 64)])
+    submit = SubmitField('Update name')
 
 
 class ChangeEmailForm(FlaskForm):

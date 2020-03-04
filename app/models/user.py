@@ -3,6 +3,7 @@ from flask_login import AnonymousUserMixin, UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from itsdangerous import BadSignature, SignatureExpired
 from werkzeug.security import check_password_hash, generate_password_hash
+from secrets import token_urlsafe
 
 from .. import db, login_manager
 
@@ -11,6 +12,19 @@ class Permission:
     GENERAL = 0x01
     ADMINISTER = 0xff
 
+usergroups = db.Table('usergroups',
+  db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+  db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True)
+)
+
+class Group(db.Model):
+  __tablename__ = 'groups'
+  id = db.Column(db.Integer, primary_key=True)
+  name = db.Column(db.String(64), unique=True)
+  users = db.relationship('User', secondary=usergroups, backref=db.backref('groups', lazy=True), lazy='subquery')
+
+  def __repr__(self):
+    return self.name
 
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -25,12 +39,9 @@ class Role(db.Model):
     def insert_roles():
         roles = {
             'User': (Permission.GENERAL, 'main', True),
-            'Administrator': (
-                Permission.ADMINISTER,
-                'admin',
-                False  # grants all permissions
-            )
+            'Administrator': (Permission.ADMINISTER, 'admin', False)
         }
+
         for r in roles:
             role = Role.query.filter_by(name=r).first()
             if role is None:
@@ -54,9 +65,14 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(64), unique=True, index=True)
     password_hash = db.Column(db.String(128))
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+    api_key = db.Column(db.String(64), unique=True, index=True)
+    session_key = db.Column(db.String(64), unique=True, index=True)
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
+        if self.session_key is None:
+            self.generate_session_key();
         if self.role is None:
             if self.email == current_app.config['ADMIN_EMAIL']:
                 self.role = Role.query.filter_by(
@@ -73,6 +89,37 @@ class User(UserMixin, db.Model):
 
     def is_admin(self):
         return self.can(Permission.ADMINISTER)
+
+    def generate_session_key(self):
+        not_unique = True
+        session_key = token_urlsafe(24)
+        while not_unique:
+            if User.query.filter_by(session_key=session_key).first() is None:
+                not_unique = False
+            else:
+                session_key = token_urlsafe(24)
+        
+        self.session_key = session_key
+        db.session.add(self)
+        db.session.commit()
+        return True
+
+    def generate_api_key(self):
+        not_unique = True
+        api_key = token_urlsafe(24)
+        while not_unique:
+            if User.query.filter_by(api_key=api_key).first() is None:
+                not_unique = False
+            else:
+                api_key = token_urlsafe(24)
+        
+        self.api_key = api_key
+        db.session.add(self)
+        db.session.commit()
+        return True
+
+    def __str__(self):
+      return self.full_name()
 
     @property
     def password(self):
@@ -136,6 +183,9 @@ class User(UserMixin, db.Model):
         db.session.commit()
         return True
 
+    def get_id(self):
+      return str(self.session_key)
+
     def reset_password(self, token, new_password):
         """Verify the new password for this user."""
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -168,7 +218,8 @@ class User(UserMixin, db.Model):
                 email=fake.email(),
                 password='password',
                 confirmed=True,
-                role=choice(roles),
+                # role=choice(roles),
+                role=Role.query.filter_by(default=True).first(),
                 **kwargs)
             db.session.add(u)
             try:
@@ -193,4 +244,4 @@ login_manager.anonymous_user = AnonymousUser
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User.query.filter_by(session_key=user_id).first()

@@ -12,23 +12,31 @@ from flask_login import (
     login_user,
     logout_user,
 )
-from flask_rq import get_queue
 
 from app import db
 from app.account.forms import (
     ChangeEmailForm,
     ChangePasswordForm,
+    ChangeUserNameForm,
     CreatePasswordForm,
     LoginForm,
     RegistrationForm,
     RequestResetPasswordForm,
     ResetPasswordForm,
+    ApiTokenForm,
 )
+
+from urllib.parse import urlparse, urljoin
+
 from app.email import send_email
 from app.models import User
 
 account = Blueprint('account', __name__)
 
+def is_safe_url(target):
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
 @account.route('/login', methods=['GET', 'POST'])
 def login():
@@ -39,6 +47,10 @@ def login():
         if user is not None and user.password_hash is not None and \
                 user.verify_password(form.password.data):
             login_user(user, form.remember_me.data)
+            next_redirect = request.args.get('next')
+            # is_safe_url should check if the url is safe for redirects.
+            if not is_safe_url(next_redirect):
+                return flask.abort(400)
             flash('You are now logged in. Welcome back!', 'success')
             return redirect(request.args.get('next') or url_for('main.index'))
         else:
@@ -71,7 +83,7 @@ def register():
               'warning')
         return redirect(url_for('main.index'))
     return render_template('account/register.html', form=form)
-
+    
 
 @account.route('/logout')
 @login_required
@@ -101,8 +113,7 @@ def reset_password_request():
             token = user.generate_password_reset_token()
             reset_link = url_for(
                 'account.reset_password', token=token, _external=True)
-            get_queue().enqueue(
-                send_email,
+            send_email(
                 recipient=user.email,
                 subject='Reset Your Password',
                 template='account/email/reset_password',
@@ -135,11 +146,23 @@ def reset_password(token):
             return redirect(url_for('main.index'))
     return render_template('account/reset_password.html', form=form)
 
+@account.route('/manage/api-token', methods=['GET', 'POST'])
+@login_required
+def api_key():
+    """Change an existing user's API token."""
+    form = ApiTokenForm()
+    if form.validate_on_submit():
+        current_user.generate_api_key()
+        flash('Your API token has been updated.', 'form-success')
+    form.api_token.data = current_user.api_key
+    return render_template('account/manage.html', user=current_user, form=form)
 
 @account.route('/manage/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     """Change an existing user's password."""
+    if not current_user.is_admin():
+        return redirect(url_for('main.index'))
     form = ChangePasswordForm()
     if form.validate_on_submit():
         if current_user.verify_password(form.old_password.data):
@@ -150,7 +173,22 @@ def change_password():
             return redirect(url_for('main.index'))
         else:
             flash('Original password is invalid.', 'form-error')
-    return render_template('account/manage.html', form=form)
+    return render_template('account/manage.html', user=current_user, form=form)
+
+
+@account.route('/manage/change-name', methods=['GET', 'POST'])
+@login_required
+def change_user_name():
+    """Change an existing user's name."""
+    form = ChangeUserNameForm()
+    if form.validate_on_submit():
+        current_user.first_name = form.first_name.data
+        current_user.last_name = form.last_name.data
+        db.session.add(current_user)
+        db.session.commit()
+        flash('Your name has been updated.', 'form-success')
+        return redirect(url_for('main.index'))
+    return render_template('account/manage.html', user=current_user, form=form)
 
 
 @account.route('/manage/change-email', methods=['GET', 'POST'])
@@ -178,7 +216,7 @@ def change_email_request():
             return redirect(url_for('main.index'))
         else:
             flash('Invalid email or password.', 'form-error')
-    return render_template('account/manage.html', form=form)
+    return render_template('account/manage.html', user=current_user, form=form)
 
 
 @account.route('/manage/change-email/<token>', methods=['GET', 'POST'])

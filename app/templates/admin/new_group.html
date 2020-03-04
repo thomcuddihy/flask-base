@@ -13,8 +13,8 @@
                 Back to dashboard
             </a>
             <h2 class="ui header">
-                Add New User
-                <div class="sub header">Create a new user account</div>
+                Add New Group
+                <div class="sub header">Create a new user group</div>
             </h2>
 
             {% set flashes = {
@@ -26,25 +26,9 @@
 
             {{ f.begin_form(form, flashes) }}
 
-                {{ f.render_form_field(form.role) }}
+                {{ f.render_form_field(form.name) }}
 
-                <div class="two fields">
-                    {{ f.render_form_field(form.first_name) }}
-                    {{ f.render_form_field(form.last_name) }}
-                </div>
-
-                {{ f.render_form_field(form.email) }}
-
-                {% if form.password %}
-
-                    <div class="two fields">
-                        {{ f.render_form_field(form.password) }}
-                        {{ f.render_form_field(form.password2) }}
-                    </div>
-
-                {% endif %}
-
-                {{ f.render_form_field(form.groups) }}
+                {{ f.render_form_field(form.users) }}
 
                 {{ f.form_message(flashes['error'], header='Something went wrong.', class='error') }}
                 {{ f.form_message(flashes['warning'], header='Check your email.', class='warning') }}
@@ -56,9 +40,6 @@
                 {% endfor %}
 
             {{ f.end_form() }}
-            {% if form.password %} 
-              {{ check.password_check('password', 0) }} 
-            {% endif %}
         </div>
     </div>
 {% endblock %}
