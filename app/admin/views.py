@@ -8,7 +8,7 @@ from flask import (
     url_for,
     send_file,
 )
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required, fresh_login_required
 from flask_rq import get_queue
 from app import db
 from app.admin.forms import (
@@ -34,6 +34,7 @@ def index():
     return render_template('admin/index.html')
 
 
+@fresh_login_required
 @admin.route('/new-user', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -55,6 +56,7 @@ def new_user():
     return render_template('admin/new_user.html', form=form)
 
 
+@fresh_login_required
 @admin.route('/invite-user', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -102,6 +104,7 @@ def manage_groups():
         'admin/manage_groups.html', users=users, groups=groups)
 
 
+@fresh_login_required
 @admin.route('/new-group', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -132,8 +135,10 @@ def group_info(group_id):
     return render_template('admin/manage_group.html', group=group)
     
 
+@fresh_login_required
 @admin.route('/group/<int:group_id>/edit', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def change_group(group_id):
     """Change a group's name."""
     group = Group.query.filter_by(id=group_id).first()
@@ -161,6 +166,7 @@ def delete_group_request(group_id):
     return render_template('admin/manage_group.html', group=group)
 
 
+@fresh_login_required
 @admin.route('/group/<int:group_id>/_delete')
 @login_required
 @admin_required
@@ -196,6 +202,7 @@ def user_info(user_id):
     return render_template('admin/manage_user.html', user=user)
 
 
+@fresh_login_required
 @admin.route(
     '/user/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -235,6 +242,7 @@ def delete_user_request(user_id):
     return render_template('admin/manage_user.html', user=user)
 
 
+@fresh_login_required
 @admin.route('/user/<int:user_id>/_delete')
 @login_required
 @admin_required
@@ -251,6 +259,7 @@ def delete_user(user_id):
     return redirect(url_for('admin.manage_users'))
 
 
+@fresh_login_required
 @admin.route('/_update_editor_contents', methods=['POST'])
 @login_required
 @admin_required

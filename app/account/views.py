@@ -11,6 +11,7 @@ from flask_login import (
     login_required,
     login_user,
     logout_user,
+    fresh_login_required,
 )
 from flask_rq import get_queue
 from app import db
@@ -101,6 +102,7 @@ def manage():
     return render_template('account/manage.html', user=current_user, form=None)
 
 
+@fresh_login_required
 @account.route('/reset-password', methods=['GET', 'POST'])
 def reset_password_request():
     """Respond to existing user's request to reset their password."""
@@ -147,6 +149,8 @@ def reset_password(token):
             return redirect(url_for('main.index'))
     return render_template('account/reset_password.html', form=form)
 
+
+@fresh_login_required
 @account.route('/manage/api-token', methods=['GET', 'POST'])
 @login_required
 def api_key():
@@ -158,6 +162,8 @@ def api_key():
     form.api_token.data = current_user.api_key
     return render_template('account/manage.html', user=current_user, form=form)
 
+
+@fresh_login_required
 @account.route('/manage/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -190,6 +196,7 @@ def change_user_name():
     return render_template('account/manage.html', user=current_user, form=form)
 
 
+@fresh_login_required
 @account.route('/manage/change-email', methods=['GET', 'POST'])
 @login_required
 def change_email_request():
